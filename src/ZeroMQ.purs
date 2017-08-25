@@ -8,6 +8,7 @@ import Data.URI (Authority, URI (..), HierarchicalPart (..), Scheme (..))
 import Data.URI.URI as URI
 import Control.Monad.Eff (Eff, kind Effect)
 import Control.Monad.Eff.Uncurried (EffFn1, EffFn2, EffFn3, runEffFn2, mkEffFn1, runEffFn1, runEffFn3)
+import Node.Buffer (Buffer)
 
 
 foreign import data ZEROMQ :: Effect
@@ -15,14 +16,14 @@ foreign import data ZEROMQ :: Effect
 foreign import registerProducerImpl :: forall eff. EffFn2 (zeromq :: ZEROMQ | eff)
                  String
                  ( EffFn1 (zeromq :: ZEROMQ | eff)
-                     (EffFn1 (zeromq :: ZEROMQ | eff) String Unit)
+                     (EffFn1 (zeromq :: ZEROMQ | eff) Buffer Unit)
                      Unit
                  )
                  Unit
 
 registerProducer :: forall eff
                   . Authority
-                 -> ( (String -> Eff (zeromq :: ZEROMQ | eff) Unit)
+                 -> ( (Buffer -> Eff (zeromq :: ZEROMQ | eff) Unit)
                    -> Eff (zeromq :: ZEROMQ | eff) Unit
                     )
                  -> Eff (zeromq :: ZEROMQ | eff) Unit
@@ -34,13 +35,13 @@ registerProducer authority f =
 
 foreign import registerWorkerImpl :: forall eff. EffFn2 (zeromq :: ZEROMQ | eff)
                  String
-                 ( EffFn1 (zeromq :: ZEROMQ | eff) String Unit
+                 ( EffFn1 (zeromq :: ZEROMQ | eff) Buffer Unit
                  )
                  Unit
 
 registerWorker :: forall eff
                 . Authority
-               -> (String -> Eff (zeromq :: ZEROMQ | eff) Unit)
+               -> (Buffer -> Eff (zeromq :: ZEROMQ | eff) Unit)
                -> Eff (zeromq :: ZEROMQ | eff) Unit
 registerWorker authority f =
   runEffFn2 registerWorkerImpl (URI.print uri) (mkEffFn1 f)
@@ -52,14 +53,14 @@ registerWorker authority f =
 foreign import registerPublisherImpl :: forall eff. EffFn2 (zeromq :: ZEROMQ | eff)
                  String
                  ( EffFn1 (zeromq :: ZEROMQ | eff)
-                     (EffFn2 (zeromq :: ZEROMQ | eff) String String Unit)
+                     (EffFn2 (zeromq :: ZEROMQ | eff) String Buffer Unit)
                      Unit
                  )
                  Unit
 
 registerPublisher :: forall eff
                    . Authority
-                  -> ( (String -> String -> Eff (zeromq :: ZEROMQ | eff) Unit)
+                  -> ( (String -> Buffer -> Eff (zeromq :: ZEROMQ | eff) Unit)
                     -> Eff (zeromq :: ZEROMQ | eff) Unit
                      )
                   -> Eff (zeromq :: ZEROMQ | eff) Unit
@@ -72,14 +73,14 @@ registerPublisher authority f =
 foreign import registerSubscriberImpl :: forall eff. EffFn3 (zeromq :: ZEROMQ | eff)
                  String
                  String
-                 ( EffFn1 (zeromq :: ZEROMQ | eff) String Unit
+                 ( EffFn1 (zeromq :: ZEROMQ | eff) Buffer Unit
                  )
                  Unit
 
 registerSubscriber :: forall eff
                     . Authority
                    -> String
-                   -> (String -> Eff (zeromq :: ZEROMQ | eff) Unit)
+                   -> (Buffer -> Eff (zeromq :: ZEROMQ | eff) Unit)
                    -> Eff (zeromq :: ZEROMQ | eff) Unit
 registerSubscriber authority channel f =
   runEffFn3 registerSubscriberImpl (URI.print uri) channel (mkEffFn1 f)
