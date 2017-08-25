@@ -22,10 +22,10 @@ exports.registerWorkerImpl = function registerWorkerImpl (socket, f) {
 exports.registerPublisherImpl = function registerPublisherImpl (socket, f) {
   var sock = zmq.socket('pub');
   sock.bindSync(socket);
+  sock.send(["foo","asdf"]);
   f(function sendImpl (channel,message) {
     sock.send([channel,message]);
   });
-  sock.send(["foo","asdf"]);
 };
 
 exports.registerSubscriberImpl = function registerSubscriberImpl (socket, channel, f) {
