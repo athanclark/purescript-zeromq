@@ -7,7 +7,7 @@ import Control.Monad.Eff.Console (CONSOLE, log)
 import Data.Maybe (Maybe (..))
 import Data.Tuple (Tuple (..))
 import Data.URI (Authority (..), Host (..), Port (..))
-import ZeroMQ (registerProducer, registerWorker)
+import ZeroMQ (registerProducer, registerWorker, registerPublisher, registerSubscriber)
 import Node.Buffer (fromArray, toArray)
 
 
@@ -24,5 +24,16 @@ producer = do
 worker :: Eff _ Unit
 worker =
   registerWorker socket $ \message -> do
+    a <- toArray message
+    log $ show a
+
+publisher :: Eff _ Unit
+publisher =
+  registerPublisher socket $ \send -> do
+    send "foo" "asd"
+
+subscriber :: Eff _ Unit
+subscriber =
+  registerSubscriber socket "foo" $ \message -> do
     a <- toArray message
     log $ show a
