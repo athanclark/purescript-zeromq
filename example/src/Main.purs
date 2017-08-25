@@ -1,8 +1,10 @@
 module Main where
 
 import Prelude
+import Control.Monad.Aff (delay, runAff)
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (CONSOLE, log)
+import Control.Monad.Eff.Class (liftEff)
+import Control.Monad.Eff.Console (CONSOLE, log, logShow, errorShow)
 
 import Data.Maybe (Maybe (..))
 import Data.Tuple (Tuple (..))
@@ -30,7 +32,10 @@ worker =
 publisher :: Eff _ Unit
 publisher =
   registerPublisher socket $ \send -> do
-    send "foo" "asd"
+    b <- fromArray [73,75,70]
+    void $ runAff errorShow logShow $ forever $ do
+      delay 1000
+      liftEff $ send "foo" "asd"
 
 subscriber :: Eff _ Unit
 subscriber =

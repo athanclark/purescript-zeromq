@@ -53,14 +53,14 @@ registerWorker authority f =
 foreign import registerPublisherImpl :: forall eff. EffFn2 (zeromq :: ZEROMQ | eff)
                  String
                  ( EffFn1 (zeromq :: ZEROMQ | eff)
-                     (EffFn2 (zeromq :: ZEROMQ | eff) String String Unit)
+                     (EffFn2 (zeromq :: ZEROMQ | eff) String Buffer Unit)
                      Unit
                  )
                  Unit
 
 registerPublisher :: forall eff
                    . Authority
-                  -> ( (String -> String -> Eff (zeromq :: ZEROMQ | eff) Unit)
+                  -> ( (String -> Buffer -> Eff (zeromq :: ZEROMQ | eff) Unit)
                     -> Eff (zeromq :: ZEROMQ | eff) Unit
                      )
                   -> Eff (zeromq :: ZEROMQ | eff) Unit
