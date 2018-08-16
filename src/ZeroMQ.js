@@ -3,35 +3,26 @@
 var zmq = require('zeromq');
 
 
-exports.registerProducerImpl = function registerProducerImpl (socket, f) {
-  var sock = zmq.socket('push');
-  sock.bindSync(socket);
-  f(function sendImpl (message) {
-    sock.send(message);
-  });
+exports.pair = zmq.types.pair;
+exports.pub = zmq.types.pub;
+exports.sub = zmq.types.sub;
+exports.xpub = zmq.types.xsub;
+exports.xsub = zmq.types.xsub;
+exports.pull = zmq.types.pull;
+exports.push = zmq.types.push;
+exports.req = zmq.types.req;
+exports.rep = zmq.types.rep;
+exports.router = zmq.types.router;
+exports.dealer = zmq.types.dealer;
+
+
+exports.socketImpl = function socketImpl (from) {
+  return zmq.socket(from);
 };
 
-exports.registerWorkerImpl = function registerWorkerImpl (socket, f) {
-  var sock = zmq.socket('pull');
-  sock.connect(socket);
-  sock.on('message', function onMessageImpl (msg) {
-    f(msg);
-  });
+
+exports.bindImpl = function bindImpl (socket,addr,onConnect) {
+  socket.bind(addr,onConnect);
 };
 
-exports.registerPublisherImpl = function registerPublisherImpl (socket, f) {
-  var sock = zmq.socket('pub');
-  sock.bindSync(socket);
-  f(function sendImpl (channel,message) {
-    sock.send([channel,message]);
-  });
-};
 
-exports.registerSubscriberImpl = function registerSubscriberImpl (socket, channel, f) {
-  var sock = zmq.socket('sub');
-  sock.connect(socket);
-  sock.subscribe(channel);
-  sock.on('message', function onMessageImpl (topic, msg) {
-    f(msg);
-  });
-};
