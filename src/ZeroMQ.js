@@ -104,6 +104,16 @@ exports.receiveImpl = function receiveImpl (socket,f) {
 };
 
 
+exports.addReceiveListenerImpl = function addReceiveListenerImpl (socket,f) {
+  socket.on('message',f);
+};
+
+
+exports.removeAllReceiveListenersImpl = function removeAllReceiveListenersImpl (socket,e) {
+  socket.removeAllListeners('message');
+};
+
+
 exports.addMonitorListenerImpl = function addMonitorListenerImpl (socket,e,f) {
   socket.on(e,f);
 };

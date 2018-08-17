@@ -10,7 +10,8 @@ module ZeroMQ
   , MonitorEvent, connectE, connectDelayE, connectRetryE, listenE, bindErrorE
   , acceptE, acceptErrorE, closeE, closeErrorE, disconnectE
   , Flag, sendMore, dontWait, close
-  , send, sendMany, read, readSync
+  , send, sendMany
+  , read, readSync, addReceiveListener, removeAllReceiveListeners
   ) where
 
 import Prelude
@@ -18,8 +19,6 @@ import Data.Maybe (Maybe (..))
 import Data.Either (Either (..))
 import Data.Nullable (Nullable, toMaybe, toNullable)
 import Data.NonEmpty (NonEmpty (..))
--- import Data.URI (Authority, URI (..), HierarchicalPart (..), Scheme (..))
--- import Data.URI.URI as URI
 import Data.Array as Array
 import Data.Time.Duration (Milliseconds)
 import Data.Generic (class Generic)
@@ -220,10 +219,12 @@ unsubscribe :: forall eff from to. Subscriber from => Socket from to -> String -
 unsubscribe = runEffFn2 unsubscribeImpl
 
 
-foreign import data Flag :: Type
+newtype Flag = Flag Int
+
+derive instance genericFlag :: Generic Flag
+derive newtype instance eqFlag :: Eq Flag
 
 foreign import sendMore :: Flag
-
 foreign import dontWait :: Flag
 
 
@@ -366,3 +367,25 @@ read :: forall eff from to. Socket from to -> Aff (zeromq :: ZEROMQ | eff) (Arra
 read s = makeAff \resolve -> do
   runEffFn2 receiveImpl s (mkEffFn1 \xs -> resolve (Right xs))
   pure nonCanceler
+
+
+foreign import addReceiveListenerImpl :: forall eff from to
+                                       . EffFn2 (zeromq :: ZEROMQ | eff)
+                                         (Socket from to)
+                                         (EffFn1 (zeromq :: ZEROMQ | eff) (Array Buffer) Unit)
+                                         Unit
+
+addReceiveListener :: forall eff from to
+                    . Socket from to
+                   -> (Array Buffer -> Eff (zeromq :: ZEROMQ | eff) Unit)
+                   -> Eff (zeromq :: ZEROMQ | eff) Unit
+addReceiveListener = runEffFn2 addReceiveListenerImpl
+
+
+foreign import removeAllReceiveListenersImpl :: forall eff from to
+                                              . EffFn1 (zeromq :: ZEROMQ | eff)
+                                                (Socket from to)
+                                                Unit
+
+removeAllReceiveListeners :: forall eff from to. Socket from to -> Eff (zeromq :: ZEROMQ | eff) Unit
+removeAllReceiveListeners = runEffFn1 removeAllReceiveListenersImpl
