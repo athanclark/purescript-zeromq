@@ -1,9 +1,11 @@
 module ZeroMQ
   ( ZEROMQ, Pair, pair, Pub, pub, Sub, sub, XPub, xpub, XSub, xsub, Pull, pull
   , Push, push, Req, req, Rep, rep, Router, router, Dealer, dealer
-  , Socket, class Connectable, socket
-  , bind', unbind, bindSync, unbindSync, connect, disconnect
-  , subscribe, unsubscribe, monitor, unmonitor
+  , Socket, class IsLegal, socket
+  , bind', unbind, bindSync, unbindSync, class Bindable
+  , connect, disconnect, class Connectable
+  , subscribe, unsubscribe, class Subscriber
+  , monitor, unmonitor
   , addMonitorListener, removeAllMonitorListeners
   , MonitorEvent, connectE, connectDelayE, connectRetryE, listenE, bindErrorE
   , acceptE, acceptErrorE, closeE, closeErrorE, disconnectE
@@ -67,59 +69,24 @@ newtype Dealer = Dealer ZMQ_Type
 foreign import dealer :: Dealer
 
 
-class Connectable from to where
-  socket :: forall eff. from -> to -> Eff (zeromq :: ZEROMQ | eff) (Socket from to)
-
-instance connectablePairPair :: Connectable Pair Pair where
-  socket from _ = runEffFn1 socketImpl from
-
-instance connectablePubSub :: Connectable Pub Sub where
-  socket from _ = runEffFn1 socketImpl from
-
-instance connectableSubPub :: Connectable Sub Pub where
-  socket from _ = runEffFn1 socketImpl from
-
-instance connectableXPubSub :: Connectable XPub Sub where
-  socket from _ = runEffFn1 socketImpl from
-
-instance connectableSubXPub :: Connectable Sub XPub where
-  socket from _ = runEffFn1 socketImpl from
-
-instance connectablePubXSub :: Connectable Pub XSub where
-  socket from _ = runEffFn1 socketImpl from
-
-instance connectableXSubPub :: Connectable XSub Pub where
-  socket from _ = runEffFn1 socketImpl from
-
-instance connectablePullPush :: Connectable Pull Push where
-  socket from _ = runEffFn1 socketImpl from
-
-instance connectablePushPull :: Connectable Push Pull where
-  socket from _ = runEffFn1 socketImpl from
-
-instance connectableRepReq :: Connectable Rep Req where
-  socket from _ = runEffFn1 socketImpl from
-
-instance connectableReqRep :: Connectable Req Rep where
-  socket from _ = runEffFn1 socketImpl from
-
-instance connectableRouterReq :: Connectable Router Req where
-  socket from _ = runEffFn1 socketImpl from
-
-instance connectableReqRouter :: Connectable Req Router where
-  socket from _ = runEffFn1 socketImpl from
-
-instance connectableRepDealer :: Connectable Rep Dealer where
-  socket from _ = runEffFn1 socketImpl from
-
-instance connectableDealerRep :: Connectable Dealer Rep where
-  socket from _ = runEffFn1 socketImpl from
-
-instance connectableDealerRouter :: Connectable Dealer Router where
-  socket from _ = runEffFn1 socketImpl from
-
-instance connectableRouterDealer :: Connectable Router Dealer where
-  socket from _ = runEffFn1 socketImpl from
+class IsLegal from to
+instance isLegalPairPair :: IsLegal Pair Pair
+instance isLegalPubSub :: IsLegal Pub Sub
+instance isLegalSubPub :: IsLegal Sub Pub
+instance isLegalXPubSub :: IsLegal XPub Sub
+instance isLegalSubXPub :: IsLegal Sub XPub
+instance isLegalPubXSub :: IsLegal Pub XSub
+instance isLegalXSubPub :: IsLegal XSub Pub
+instance isLegalPullPush :: IsLegal Pull Push
+instance isLegalPushPull :: IsLegal Push Pull
+instance isLegalRepReq :: IsLegal Rep Req
+instance isLegalReqRep :: IsLegal Req Rep
+instance isLegalRouterReq :: IsLegal Router Req
+instance isLegalReqRouter :: IsLegal Req Router
+instance isLegalRepDealer :: IsLegal Rep Dealer
+instance isLegalDealerRep :: IsLegal Dealer Rep
+instance isLegalDealerRouter :: IsLegal Dealer Router
+instance isLegalRouterDealer :: IsLegal Router Dealer
 
 
 foreign import data Socket :: Type -> Type -> Type
@@ -127,6 +94,20 @@ foreign import data Socket :: Type -> Type -> Type
 
 foreign import socketImpl :: forall eff from to
                            . EffFn1 (zeromq :: ZEROMQ | eff) from (Socket from to)
+
+socket :: forall from to eff. IsLegal from to => from -> to -> Eff (zeromq :: ZEROMQ | eff) (Socket from to)
+socket from _ = runEffFn1 socketImpl from
+
+class Bindable from
+instance bindablePub :: Bindable Pub
+instance bindableXPub :: Bindable XPub
+instance bindableXSub :: Bindable XSub
+instance bindableRep :: Bindable Rep
+instance bindablePair :: Bindable Pair
+instance bindablePull :: Bindable Pull
+instance bindablePush :: Bindable Push
+instance bindableRouter :: Bindable Router
+instance bindableDealer :: Bindable Dealer
 
 
 foreign import bindImpl :: forall eff from to
@@ -136,7 +117,9 @@ foreign import bindImpl :: forall eff from to
                            (EffFn1 (zeromq :: ZEROMQ | eff) (Nullable Error) Unit)
                            Unit
 
-bind' :: forall eff from to. Socket from to -> String -> Aff (zeromq :: ZEROMQ | eff) Unit
+bind' :: forall eff from to
+       . Bindable from
+      => Socket from to -> String -> Aff (zeromq :: ZEROMQ | eff) Unit
 bind' s addr = makeAff \resolve -> do
   runEffFn3 bindImpl s addr $ mkEffFn1 \mE -> case toMaybe mE of
     Nothing -> resolve (Right unit)
@@ -150,7 +133,7 @@ foreign import bindSyncImpl :: forall eff from to
                                String
                                Unit
 
-bindSync :: forall eff from to. Socket from to -> String -> Eff (zeromq :: ZEROMQ | eff) Unit
+bindSync :: forall eff from to. Bindable from => Socket from to -> String -> Eff (zeromq :: ZEROMQ | eff) Unit
 bindSync = runEffFn2 bindSyncImpl
 
 
@@ -161,7 +144,7 @@ foreign import unbindImpl :: forall eff from to
                              (EffFn1 (zeromq :: ZEROMQ | eff) (Nullable Error) Unit)
                              Unit
 
-unbind :: forall eff from to. Socket from to -> String -> Aff (zeromq :: ZEROMQ | eff) Unit
+unbind :: forall eff from to. Bindable from => Socket from to -> String -> Aff (zeromq :: ZEROMQ | eff) Unit
 unbind s addr = makeAff \resolve -> do
   runEffFn3 bindImpl s addr $ mkEffFn1 \mE -> case toMaybe mE of
     Nothing -> resolve (Right unit)
@@ -175,8 +158,22 @@ foreign import unbindSyncImpl :: forall eff from to
                                  String
                                  Unit
 
-unbindSync :: forall eff from to. Socket from to -> String -> Eff (zeromq :: ZEROMQ | eff) Unit
+unbindSync :: forall eff from to. Bindable from => Socket from to -> String -> Eff (zeromq :: ZEROMQ | eff) Unit
 unbindSync = runEffFn2 unbindSyncImpl
+
+
+class Connectable from
+instance connectablePair :: Connectable Pair
+instance connectablePub :: Connectable Pub
+instance connectableSub :: Connectable Sub
+instance connectableXPub :: Connectable XPub
+instance connectableXSub :: Connectable XSub
+instance connectablePull :: Connectable Pull
+instance connectablePush :: Connectable Push
+instance connectableReq :: Connectable Req
+instance connectableRep :: Connectable Rep
+instance connectableRouter :: Connectable Router
+instance connectableDealer :: Connectable Dealer
 
 
 foreign import connectImpl :: forall eff from to
@@ -185,7 +182,7 @@ foreign import connectImpl :: forall eff from to
                               String
                               Unit
 
-connect :: forall eff from to. Socket from to -> String -> Eff (zeromq :: ZEROMQ | eff) Unit
+connect :: forall eff from to. Connectable from => Socket from to -> String -> Eff (zeromq :: ZEROMQ | eff) Unit
 connect = runEffFn2 connectImpl
 
 
@@ -195,8 +192,12 @@ foreign import disconnectImpl :: forall eff from to
                                  String
                                  Unit
 
-disconnect :: forall eff from to. Socket from to -> String -> Eff (zeromq :: ZEROMQ | eff) Unit
+disconnect :: forall eff from to. Connectable from => Socket from to -> String -> Eff (zeromq :: ZEROMQ | eff) Unit
 disconnect = runEffFn2 disconnectImpl
+
+
+class Subscriber from
+instance subscriberSub :: Subscriber Sub
 
 
 foreign import subscribeImpl :: forall eff from to
@@ -205,7 +206,7 @@ foreign import subscribeImpl :: forall eff from to
                                 String
                                 Unit
 
-subscribe :: forall eff from to. Socket from to -> String -> Eff (zeromq :: ZEROMQ | eff) Unit
+subscribe :: forall eff from to. Subscriber from => Socket from to -> String -> Eff (zeromq :: ZEROMQ | eff) Unit
 subscribe = runEffFn2 subscribeImpl
 
 
@@ -215,7 +216,7 @@ foreign import unsubscribeImpl :: forall eff from to
                                   String
                                   Unit
 
-unsubscribe :: forall eff from to. Socket from to -> String -> Eff (zeromq :: ZEROMQ | eff) Unit
+unsubscribe :: forall eff from to. Subscriber from => Socket from to -> String -> Eff (zeromq :: ZEROMQ | eff) Unit
 unsubscribe = runEffFn2 unsubscribeImpl
 
 
