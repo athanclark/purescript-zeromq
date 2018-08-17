@@ -1,15 +1,26 @@
 module ZeroMQ
   ( ZEROMQ, Pair, pair, Pub, pub, Sub, sub, XPub, xpub, XSub, xsub, Pull, pull
   , Push, push, Req, req, Rep, rep, Router, router, Dealer, dealer
-  , Socket, socket, bind
+  , Socket, socket, bind', unbind, bindSync, unbindSync, connect, disconnect
+  , subscribe, unsubscribe, monitor, unmonitor
+  , addMonitorListener, removeAllMonitorListeners
+  , MonitorEvent, connectE, connectDelayE, connectRetryE, listenE, bindErrorE
+  , acceptE, acceptErrorE, closeE, closeErrorE, disconnectE
+  , Flag, sendMore, dontWait, close
+  , send, sendMany, read, readSync
   ) where
 
 import Prelude
 import Data.Maybe (Maybe (..))
 import Data.Either (Either (..))
-import Data.Nullable (Nullable, toMaybe)
+import Data.Nullable (Nullable, toMaybe, toNullable)
+import Data.NonEmpty (NonEmpty (..))
 -- import Data.URI (Authority, URI (..), HierarchicalPart (..), Scheme (..))
 -- import Data.URI.URI as URI
+import Data.Array as Array
+import Data.Time.Duration (Milliseconds)
+import Data.Generic (class Generic)
+import Data.Foreign (Foreign)
 import Control.Monad.Aff (Aff, makeAff, nonCanceler)
 import Control.Monad.Eff (Eff, kind Effect)
 import Control.Monad.Eff.Uncurried (EffFn1, EffFn2, EffFn3, runEffFn2, mkEffFn1, runEffFn1, runEffFn3)
@@ -71,8 +82,8 @@ foreign import bindImpl :: forall eff from
                            (EffFn1 (zeromq :: ZEROMQ | eff) (Nullable Error) Unit)
                            Unit
 
-bind :: forall eff from. Socket from -> String -> Aff (zeromq :: ZEROMQ | eff) Unit
-bind s addr = makeAff \resolve -> do
+bind' :: forall eff from. Socket from -> String -> Aff (zeromq :: ZEROMQ | eff) Unit
+bind' s addr = makeAff \resolve -> do
   runEffFn3 bindImpl s addr $ mkEffFn1 \mE -> case toMaybe mE of
     Nothing -> resolve (Right unit)
     Just e -> resolve (Left e)
@@ -169,5 +180,134 @@ foreign import sendImpl :: forall eff from
                            Unit
 
 
-send :: forall eff from. Socket from -> Nullable Flag -> Buffer -> Eff (zeromq :: ZEROMQ | eff) Unit
-send = runEffFn3 sendImpl
+send :: forall eff from. Socket from -> Maybe Flag -> Buffer -> Eff (zeromq :: ZEROMQ | eff) Unit
+send s f x = runEffFn3 sendImpl s (toNullable f) x
+
+
+foreign import sendManyImpl :: forall eff from
+                             . EffFn2 (zeromq :: ZEROMQ | eff)
+                               (Socket from)
+                               (Array Buffer)
+                               Unit
+
+
+sendMany :: forall eff from. Socket from -> NonEmpty Array Buffer -> Eff (zeromq :: ZEROMQ | eff) Unit
+sendMany s (NonEmpty x xs) = runEffFn2 sendManyImpl s ([x] <> xs)
+
+
+foreign import readImpl :: forall eff from
+                         . EffFn1 (zeromq :: ZEROMQ | eff)
+                           (Socket from)
+                           (Nullable (Array Buffer))
+
+readSync :: forall eff from. Socket from -> Eff (zeromq :: ZEROMQ | eff) (Maybe (NonEmpty Array Buffer))
+readSync s = do
+  mxs <- runEffFn1 readImpl s
+  case toMaybe mxs of
+    Nothing -> pure Nothing
+    Just xs -> case Array.uncons xs of
+      Nothing -> pure Nothing
+      Just {head,tail} -> pure $ Just $ NonEmpty head tail
+
+
+newtype MonitorEvent = MonitorEvent String
+
+derive instance genericMonitorEvent :: Generic MonitorEvent
+derive newtype instance eqMonitorEvent :: Eq MonitorEvent
+
+connectE :: MonitorEvent
+connectE = MonitorEvent "connect"
+
+connectDelayE :: MonitorEvent
+connectDelayE = MonitorEvent "connect_delay"
+
+connectRetryE :: MonitorEvent
+connectRetryE = MonitorEvent "connect_retry"
+
+listenE :: MonitorEvent
+listenE = MonitorEvent "listen"
+
+bindErrorE :: MonitorEvent
+bindErrorE = MonitorEvent "bind_error"
+
+acceptE :: MonitorEvent
+acceptE = MonitorEvent "accept"
+
+acceptErrorE :: MonitorEvent
+acceptErrorE = MonitorEvent "accept_error"
+
+closeE :: MonitorEvent
+closeE = MonitorEvent "close"
+
+closeErrorE :: MonitorEvent
+closeErrorE = MonitorEvent "close_error"
+
+disconnectE :: MonitorEvent
+disconnectE = MonitorEvent "disconnect"
+
+
+foreign import monitorImpl :: forall eff from
+                            . EffFn3 (zeromq :: ZEROMQ | eff)
+                              (Socket from)
+                              Milliseconds
+                              Int
+                              Unit
+
+
+monitor :: forall eff from. Socket from -> Milliseconds -> Int -> Eff (zeromq :: ZEROMQ | eff) Unit
+monitor = runEffFn3 monitorImpl
+
+
+foreign import unmonitorImpl :: forall eff from
+                              . EffFn1 (zeromq :: ZEROMQ | eff)
+                                (Socket from)
+                                Unit
+
+unmonitor :: forall eff from. Socket from -> Eff (zeromq :: ZEROMQ | eff) Unit
+unmonitor = runEffFn1 unmonitorImpl
+
+
+foreign import addMonitorListenerImpl :: forall eff from
+                                       . EffFn3 (zeromq :: ZEROMQ | eff)
+                                         (Socket from)
+                                         MonitorEvent
+                                         (EffFn1 (zeromq :: ZEROMQ | eff) Foreign Unit)
+                                         Unit
+
+addMonitorListener :: forall eff from
+                    . Socket from
+                   -> MonitorEvent
+                   -> (Foreign -> Eff (zeromq :: ZEROMQ | eff) Unit)
+                   -> Eff (zeromq :: ZEROMQ | eff) Unit
+addMonitorListener s e f = runEffFn3 addMonitorListenerImpl s e (mkEffFn1 f)
+
+
+foreign import removeAllMonitorListenersImpl :: forall eff from
+                                              . EffFn2 (zeromq :: ZEROMQ | eff)
+                                                (Socket from)
+                                                MonitorEvent
+                                                Unit
+
+removeAllMonitorListeners :: forall eff from. Socket from -> MonitorEvent -> Eff (zeromq :: ZEROMQ | eff) Unit
+removeAllMonitorListeners = runEffFn2 removeAllMonitorListenersImpl
+
+
+foreign import closeImpl :: forall eff from
+                          . EffFn1 (zeromq :: ZEROMQ | eff)
+                            (Socket from)
+                            Unit
+
+close :: forall eff from. Socket from -> Eff (zeromq :: ZEROMQ | eff) Unit
+close = runEffFn1 closeImpl
+
+
+foreign import receiveImpl :: forall eff from
+                            . EffFn2 (zeromq :: ZEROMQ | eff)
+                              (Socket from)
+                              (EffFn1 (zeromq :: ZEROMQ | eff) (Array Buffer) Unit)
+                              Unit
+
+read :: forall eff from. Socket from -> Aff (zeromq :: ZEROMQ | eff) (Array Buffer)
+read s = makeAff \resolve -> do
+  runEffFn2 receiveImpl s (mkEffFn1 \xs -> resolve (Right xs))
+  pure nonCanceler

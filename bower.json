@@ -13,6 +13,7 @@
     "purescript-console": "^3.0.0",
     "purescript-aff": "^4.1.1",
     "purescript-nullable": "^3.0.0",
+    "purescript-foreign": "^4.0.1",
     "purescript-node-buffer": "^3.0.1"
   },
   "repository": {

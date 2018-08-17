@@ -68,3 +68,47 @@ exports.dontWait = zmq.ZMQ_DONTWAIT;
 exports.sendImpl = function sendImpl (socket,flags,msg) {
   socket.send(msg,flags);
 };
+
+
+exports.sendManyImpl = function sendManyImpl (socket,msgs) {
+  socket.send(msgs);
+};
+
+
+exports.readImpl = function readImpl (socket) {
+  return socket.read();
+};
+
+
+exports.monitorImpl = function monitorImpl (socket,interval,events) {
+  socket.monitor(interval,events);
+};
+
+
+exports.unmonitorImpl = function unmonitorImpl (socket) {
+  socket.unmonitor();
+};
+
+
+exports.closeImpl = function closeImpl (socket) {
+  socket.close();
+};
+
+
+exports.receiveImpl = function receiveImpl (socket,f) {
+  var f_ = function f_ () {
+    socket.removeListener('message',f_);
+    f(arguments);
+  };
+  socket.on('message',f_);
+};
+
+
+exports.addMonitorListenerImpl = function addMonitorListenerImpl (socket,e,f) {
+  socket.on(e,f);
+};
+
+
+exports.removeAllMonitorListenersImpl = function removeAllMonitorListenersImpl (socket,e) {
+  socket.removeAllListeners(e);
+};
