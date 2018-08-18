@@ -28,7 +28,7 @@ import ZeroMQ
 
 main :: Eff _ Unit
 main = do
-  runServer -- Client
+  runClient
   -- log "You should add some tests."
 
 
@@ -38,19 +38,18 @@ runServer = do
   clientId <- (\x -> fromArray [0,0,0,0]) =<< genUUID
   setOption server zmqIdentity clientId
 
-  empty <- fromString "" UTF8
   hello <- fromString "Hello" UTF8
 
   let resolve eX = case eX of
         Left e -> throwException e
         Right _ -> pure unit
   runAff_ resolve $ for_ (enumFromTo 1 10 :: Array Int) \i -> do
-    liftEff $ sendMany server $ NonEmpty empty [hello]
+    liftEff $ sendMany unit server $ NonEmpty hello []
     xs <- read server
-    case Array.uncons xs of
+    case xs of
       Nothing -> liftEff $ log "no content?"
-      Just {head,tail} -> do
-        xs' <- liftEff $ traverse (toString UTF8) tail
+      Just {msg} -> do
+        xs' <- liftEff $ traverse (toString UTF8) msg
         liftEff $ log $ show xs'
         delay $ Milliseconds $ 1000.0
 
@@ -64,10 +63,10 @@ runClient = do
         Right _ -> pure unit
   runAff_ resolve $ forever do
     xs <- read client
-    liftEff $ case Array.uncons xs of
+    liftEff $ case xs of
       Nothing -> log "no content?"
-      Just {head,tail} -> do
-        xs' <- traverse (toString UTF8) xs
+      Just {aux:addr,msg:NonEmpty y ys} -> do
+        xs' <- traverse (toString UTF8) ([y] <> ys)
         log $ show xs'
         q <- fromString "?" UTF8
-        sendMany client $ NonEmpty head $ tail <> [q]
+        sendMany addr client $ NonEmpty y $ ys <> [q]
