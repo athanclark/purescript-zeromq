@@ -2,7 +2,7 @@ module ZeroMQ
   ( ZEROMQ, Pair, pair, Pub, pub, Sub, sub, XPub, xpub, XSub, xsub, Pull, pull
   , Push, push, Req, req, Rep, rep, Router, router, Dealer, dealer
   , Socket, class IsLegal, socket
-  , OptionValue, ZMQ_Option, zmqIdentity, ZMQIdent (..)
+  , ZMQ_Option, zmqIdentity, ZMQIdent (..)
   , setOption, getOption
   , bind', unbind, bindSync, unbindSync, class Bindable
   , connect, disconnect, class Connectable
@@ -12,8 +12,8 @@ module ZeroMQ
   , MonitorEvent, connectE, connectDelayE, connectRetryE, listenE, bindErrorE
   , acceptE, acceptErrorE, closeE, closeErrorE, disconnectE
   , Flag, sendMore, dontWait, close
-  , send, sendMany
-  , read, readSync, addReceiveListener, removeAllReceiveListeners
+  , class Sendable, sendMany
+  , class Receivable, read, addReceiveListener, removeAllReceiveListeners
   , proxy, kind Location, Bound, Connected
   ) where
 
@@ -26,11 +26,12 @@ import Data.Array as Array
 import Data.Time.Duration (Milliseconds)
 import Data.Generic (class Generic)
 import Data.Foreign (Foreign)
+import Node.Buffer (Buffer, fromArray)
 import Control.Monad.Aff (Aff, makeAff, nonCanceler)
 import Control.Monad.Eff (Eff, kind Effect)
 import Control.Monad.Eff.Uncurried (EffFn1, EffFn2, EffFn3, runEffFn2, mkEffFn1, runEffFn1, runEffFn3)
+import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
 import Control.Monad.Eff.Exception (Error)
-import Node.Buffer (Buffer)
 
 
 -- * Types
@@ -128,6 +129,154 @@ class Subscriber from
 instance subscriberSub :: Subscriber Sub
 
 
+class Sendable from to aux | from to -> aux where
+  sendMany :: forall eff loc
+            . aux
+           -> Socket from to loc
+           -> NonEmpty Array Buffer
+           -> Eff (zeromq :: ZEROMQ | eff) Unit
+
+instance sendablePubSub :: Sendable Pub Sub Unit where
+  sendMany _ s xs = sendMany' s xs
+
+instance sendableXPubSub :: Sendable XPub Sub Unit where
+  sendMany _ s xs = sendMany' s xs
+
+instance sendablePubXSub :: Sendable Pub XSub Unit where
+  sendMany _ s xs = sendMany' s xs
+
+instance sendableReqRep :: Sendable Req Rep Unit where
+  sendMany _ s xs = sendMany' s xs
+
+instance sendableRepReq :: Sendable Rep Req Unit where
+  sendMany _ s xs = sendMany' s xs
+
+instance sendableReqRouter :: Sendable Req Router Unit where
+  sendMany _ s xs = sendMany' s xs
+
+instance sendableRouterReq :: Sendable Router Req ZMQIdent where
+  sendMany (ZMQIdent addr) s (NonEmpty x xs) = do
+    empty <- unsafeCoerceEff (fromArray [])
+    sendMany' s $ NonEmpty addr $ [empty, x] <> xs
+
+instance sendableRepDealer :: Sendable Rep Dealer Unit where
+  sendMany _ s xs = sendMany' s xs
+
+instance sendableDealerRep :: Sendable Dealer Rep Unit where
+  sendMany _ s (NonEmpty x xs) = do
+    empty <- unsafeCoerceEff (fromArray [])
+    sendMany' s $ NonEmpty empty $ [x] <> xs
+
+instance sendableDealerRouter :: Sendable Dealer Router Unit where
+  sendMany _ s (NonEmpty x xs) = do
+    empty <- unsafeCoerceEff (fromArray [])
+    sendMany' s $ NonEmpty empty $ [x] <> xs
+
+instance sendableRouterDealer :: Sendable Router Dealer ZMQIdent where
+  sendMany (ZMQIdent addr) s (NonEmpty x xs) = do
+    empty <- unsafeCoerceEff (fromArray [])
+    sendMany' s $ NonEmpty addr $ [empty, x] <> xs
+
+
+class Receivable from to aux | from to -> aux where
+  read :: forall eff loc
+        . Socket from to loc
+       -> Aff (zeromq :: ZEROMQ | eff)
+          (Maybe { aux :: aux, msg :: NonEmpty Array Buffer })
+
+instance receivableSubPub :: Receivable Sub Pub Unit where
+  read s = do
+    xs <- read' s
+    case Array.uncons xs of
+      Just {head,tail} -> pure $ Just {aux: unit, msg: NonEmpty head tail}
+      _ -> pure Nothing
+
+instance receivableSubXPub :: Receivable Sub XPub Unit where
+  read s = do
+    xs <- read' s
+    case Array.uncons xs of
+      Just {head,tail} -> pure $ Just {aux: unit, msg: NonEmpty head tail}
+      _ -> pure Nothing
+
+instance receivableXSubPub :: Receivable XSub Pub Unit where
+  read s = do
+    xs <- read' s
+    case Array.uncons xs of
+      Just {head,tail} -> pure $ Just {aux: unit, msg: NonEmpty head tail}
+      _ -> pure Nothing
+
+instance receivableReqRep :: Receivable Req Rep Unit where
+  read s = do
+    xs <- read' s
+    case Array.uncons xs of
+      Just {head,tail} -> pure $ Just {aux: unit, msg: NonEmpty head tail}
+      _ -> pure Nothing
+
+instance receivableRepReq :: Receivable Rep Req Unit where
+  read s = do
+    xs <- read' s
+    case Array.uncons xs of
+      Just {head,tail} -> pure $ Just {aux: unit, msg: NonEmpty head tail}
+      _ -> pure Nothing
+
+instance receivableReqRouter :: Receivable Req Router Unit where
+  read s = do
+    xs <- read' s
+    case Array.uncons xs of
+      Just {head,tail} -> pure $ Just {aux: unit, msg: NonEmpty head tail}
+      _ -> pure Nothing
+
+instance receivableRouterReq :: Receivable Router Req ZMQIdent where
+  read s = do
+    xs <- read' s
+    case Array.uncons xs of
+      Just {head:addr,tail:t1} -> case Array.uncons t1 of
+        Just {head:_,tail:t2} -> case Array.uncons t2 of
+          Just {head,tail} ->
+            pure $ Just {aux: ZMQIdent addr, msg: NonEmpty head tail}
+          _ -> pure Nothing
+        _ -> pure Nothing
+      _ -> pure Nothing
+
+instance receivableRepDealer :: Receivable Rep Dealer Unit where
+  read s = do
+    xs <- read' s
+    case Array.uncons xs of
+      Just {head,tail} -> pure $ Just {aux: unit, msg: NonEmpty head tail}
+      _ -> pure Nothing
+
+instance receivableDealerRep :: Receivable Dealer Rep Unit where
+  read s = do
+    xs <- read' s
+    case Array.uncons xs of
+      Just {head:_,tail:t1} -> case Array.uncons t1 of
+        Just {head,tail} -> pure $ Just {aux: unit, msg: NonEmpty head tail}
+        _ -> pure Nothing
+      _ -> pure Nothing
+
+instance receivableDealerRouter :: Receivable Dealer Router Unit where
+  read s = do
+    xs <- read' s
+    case Array.uncons xs of
+      Just {head:_,tail:t1} -> case Array.uncons t1 of
+        Just {head,tail} -> pure $ Just {aux: unit, msg: NonEmpty head tail}
+        _ -> pure Nothing
+      _ -> pure Nothing
+
+instance receivableRouterDealer :: Receivable Router Dealer ZMQIdent where
+  read s = do
+    xs <- read' s
+    case Array.uncons xs of
+      Just {head:addr,tail:t1} -> case Array.uncons t1 of
+        Just {head:_,tail:t2} -> case Array.uncons t2 of
+          Just {head,tail} ->
+            pure $ Just {aux: ZMQIdent addr, msg: NonEmpty head tail}
+          _ -> pure Nothing
+        _ -> pure Nothing
+      _ -> pure Nothing
+
+
+
 newtype Flag = Flag Int
 
 derive instance genericFlag :: Generic Flag
@@ -181,15 +330,13 @@ derive newtype instance eqZMQOption :: Eq ZMQ_Option
 foreign import zmqIdentity :: ZMQ_Option
 
 
-type OptionValue = Foreign
-
 
 foreign import data Socket :: Type -> Type -> Location -> Type
 
 
-newtype ZMQIdent = ZMQIdent String
-derive instance genericZMQIdent :: Generic ZMQIdent
-derive newtype instance eqZMQIdent :: Eq ZMQIdent
+newtype ZMQIdent = ZMQIdent Buffer
+-- derive instance genericZMQIdent :: Generic ZMQIdent
+-- derive newtype instance eqZMQIdent :: Eq ZMQIdent
 
 
 -- * Functions
@@ -207,11 +354,11 @@ foreign import setOptionImpl :: forall eff from to loc
                               . EffFn3 (zeromq :: ZEROMQ | eff)
                                 (Socket from to loc)
                                 ZMQ_Option
-                                OptionValue
+                                Buffer
                                 Unit
 
 setOption :: forall eff from to loc
-           . Socket from to loc -> ZMQ_Option -> OptionValue -> Eff (zeromq :: ZEROMQ | eff) Unit
+           . Socket from to loc -> ZMQ_Option -> Buffer -> Eff (zeromq :: ZEROMQ | eff) Unit
 setOption = runEffFn3 setOptionImpl
 
 
@@ -219,10 +366,10 @@ foreign import getOptionImpl :: forall eff from to loc
                               . EffFn2 (zeromq :: ZEROMQ | eff)
                                 (Socket from to loc)
                                 ZMQ_Option
-                                (Nullable OptionValue)
+                                (Nullable Buffer)
 
 getOption :: forall eff from to loc
-           . Socket from to loc -> ZMQ_Option -> Eff (zeromq :: ZEROMQ | eff) (Maybe OptionValue)
+           . Socket from to loc -> ZMQ_Option -> Eff (zeromq :: ZEROMQ | eff) (Maybe Buffer)
 getOption s o = toMaybe <$> runEffFn2 getOptionImpl s o
 
 
@@ -318,16 +465,16 @@ unsubscribe :: forall eff from to loc. Subscriber from => Socket from to loc -> 
 unsubscribe = runEffFn2 unsubscribeImpl
 
 
-foreign import sendImpl :: forall eff from to loc
-                         . EffFn3 (zeromq :: ZEROMQ | eff)
-                           (Socket from to loc)
-                           (Nullable Flag)
-                           Buffer
-                           Unit
+-- foreign import sendImpl :: forall eff from to loc
+--                          . EffFn3 (zeromq :: ZEROMQ | eff)
+--                            (Socket from to loc)
+--                            (Nullable Flag)
+--                            Buffer
+--                            Unit
 
 
-send :: forall eff from to loc. Socket from to loc -> Maybe Flag -> Buffer -> Eff (zeromq :: ZEROMQ | eff) Unit
-send s f x = runEffFn3 sendImpl s (toNullable f) x
+-- send :: forall eff from to loc. Socket from to loc -> Maybe Flag -> Buffer -> Eff (zeromq :: ZEROMQ | eff) Unit
+-- send s f x = runEffFn3 sendImpl s (toNullable f) x
 
 
 foreign import sendManyImpl :: forall eff from to loc
@@ -337,23 +484,26 @@ foreign import sendManyImpl :: forall eff from to loc
                                Unit
 
 
-sendMany :: forall eff from to loc. Socket from to loc -> NonEmpty Array Buffer -> Eff (zeromq :: ZEROMQ | eff) Unit
-sendMany s (NonEmpty x xs) = runEffFn2 sendManyImpl s ([x] <> xs)
+sendMany' :: forall eff from to loc
+           . Socket from to loc
+          -> NonEmpty Array Buffer
+          -> Eff (zeromq :: ZEROMQ | eff) Unit
+sendMany' s (NonEmpty x xs) = runEffFn2 sendManyImpl s ([x] <> xs)
 
 
-foreign import readImpl :: forall eff from to loc
-                         . EffFn1 (zeromq :: ZEROMQ | eff)
-                           (Socket from to loc)
-                           (Nullable (Array Buffer))
+-- foreign import readImpl :: forall eff from to loc
+--                          . EffFn1 (zeromq :: ZEROMQ | eff)
+--                            (Socket from to loc)
+--                            (Nullable (Array Buffer))
 
-readSync :: forall eff from to loc. Socket from to loc -> Eff (zeromq :: ZEROMQ | eff) (Maybe (NonEmpty Array Buffer))
-readSync s = do
-  mxs <- runEffFn1 readImpl s
-  case toMaybe mxs of
-    Nothing -> pure Nothing
-    Just xs -> case Array.uncons xs of
-      Nothing -> pure Nothing
-      Just {head,tail} -> pure $ Just $ NonEmpty head tail
+-- readSync :: forall eff from to loc. Socket from to loc -> Eff (zeromq :: ZEROMQ | eff) (Maybe (NonEmpty Array Buffer))
+-- readSync s = do
+--   mxs <- runEffFn1 readImpl s
+--   case toMaybe mxs of
+--     Nothing -> pure Nothing
+--     Just xs -> case Array.uncons xs of
+--       Nothing -> pure Nothing
+--       Just {head,tail} -> pure $ Just $ NonEmpty head tail
 
 
 foreign import monitorImpl :: forall eff from to loc
@@ -417,8 +567,10 @@ foreign import receiveImpl :: forall eff from to loc
                               (EffFn1 (zeromq :: ZEROMQ | eff) (Array Buffer) Unit)
                               Unit
 
-read :: forall eff from to loc. Socket from to loc -> Aff (zeromq :: ZEROMQ | eff) (Array Buffer)
-read s = makeAff \resolve -> do
+read' :: forall eff from to loc
+       . Socket from to loc
+      -> Aff (zeromq :: ZEROMQ | eff) (Array Buffer)
+read' s = makeAff \resolve -> do
   runEffFn2 receiveImpl s (mkEffFn1 \xs -> resolve (Right xs))
   pure nonCanceler
 

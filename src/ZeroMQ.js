@@ -3,17 +3,17 @@
 var zmq = require('zeromq');
 
 
-exports.pair = zmq.types.pair;
-exports.pub = zmq.types.pub;
-exports.sub = zmq.types.sub;
-exports.xpub = zmq.types.xsub;
-exports.xsub = zmq.types.xsub;
-exports.pull = zmq.types.pull;
-exports.push = zmq.types.push;
-exports.req = zmq.types.req;
-exports.rep = zmq.types.rep;
-exports.router = zmq.types.router;
-exports.dealer = zmq.types.dealer;
+exports.pair = 'pair';
+exports.pub = 'pub';
+exports.sub = 'sub';
+exports.xpub = 'xsub';
+exports.xsub = 'xsub';
+exports.pull = 'pull';
+exports.push = 'push';
+exports.req = 'req';
+exports.rep = 'rep';
+exports.router = 'router';
+exports.dealer = 'dealer';
 
 
 exports.socketImpl = function socketImpl (from) {
@@ -110,8 +110,9 @@ exports.closeImpl = function closeImpl (socket) {
 
 exports.receiveImpl = function receiveImpl (socket,f) {
   var f_ = function f_ () {
+    var as = Object.values(arguments);
     socket.removeListener('message',f_);
-    f(arguments);
+    f(as);
   };
   socket.on('message',f_);
 };

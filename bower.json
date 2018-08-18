@@ -21,6 +21,8 @@
     "url": "git://github.com/athanclark/purescript-zeromq.git"
   },
   "devDependencies": {
+    "purescript-encoding": "^0.0.4",
+    "purescript-uuid": "^4.0.0",
     "purescript-psci-support": "^3.0.0"
   }
 }

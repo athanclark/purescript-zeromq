@@ -21,6 +21,7 @@
   },
   "homepage": "https://github.com/athanclark/purescript-zeromq#readme",
   "dependencies": {
+    "uuid": "^3.3.2",
     "zeromq": "^4.6.0"
   }
 }
