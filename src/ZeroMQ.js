@@ -21,6 +21,19 @@ exports.socketImpl = function socketImpl (from) {
 };
 
 
+exports.zmqIdentity = zmq.ZMQ_IDENTITY;
+
+
+exports.setOptionImpl = function setOptionImpl (socket,opt,val) {
+  socket.setsockopt(opt,val);
+};
+
+
+exports.getOptionImpl = function getOptionImpl (socket,opt) {
+  return socket.getsockopt(opt);
+};
+
+
 exports.bindImpl = function bindImpl (socket,addr,onConnect) {
   socket.bind(addr,onConnect);
 };
@@ -121,4 +134,9 @@ exports.addMonitorListenerImpl = function addMonitorListenerImpl (socket,e,f) {
 
 exports.removeAllMonitorListenersImpl = function removeAllMonitorListenersImpl (socket,e) {
   socket.removeAllListeners(e);
+};
+
+
+exports.proxyImpl = function proxyImpl (frontend,backend,capture) {
+  zmq.proxy(frontend,backend,capture);
 };
