@@ -12,8 +12,8 @@ module ZeroMQ
   , MonitorEvent, connectE, connectDelayE, connectRetryE, listenE, bindErrorE
   , acceptE, acceptErrorE, closeE, closeErrorE, disconnectE
   , Flag, sendMore, dontWait, close
-  , class Sendable, sendMany
-  , class Receivable, read, addReceiveListener, removeAllReceiveListeners
+  , class Sendable, sendMany, sendJson
+  , class Receivable, readMany, readJson, addReceiveListener, removeAllReceiveListeners
   , proxy, kind Location, Bound, Connected
   ) where
 
@@ -196,10 +196,10 @@ instance sendableRouterDealer :: Sendable Router Dealer ZMQIdent where
 
 
 class Receivable from to aux | from to -> aux where
-  read :: forall eff loc
-        . Socket from to loc
-       -> Aff (zeromq :: ZEROMQ | eff)
-          (Maybe { aux :: aux, msg :: NonEmpty Array Buffer })
+  readMany :: forall eff loc
+            . Socket from to loc
+          -> Aff (zeromq :: ZEROMQ | eff)
+              (Maybe { aux :: aux, msg :: NonEmpty Array Buffer })
 
 readJson :: forall from to aux eff loc a
           . Receivable from to aux
@@ -208,7 +208,7 @@ readJson :: forall from to aux eff loc a
          -> Aff (buffer :: BUFFER, zeromq :: ZEROMQ | eff)
             (Maybe { aux :: aux, msg :: a })
 readJson s = do
-  mX <- read s
+  mX <- readMany s
   case mX of
     Nothing -> pure Nothing
     Just {aux,msg: NonEmpty msg _} -> do
@@ -218,49 +218,49 @@ readJson s = do
         Right x -> pure (Just {aux,msg:x})
 
 instance receivableSubPub :: Receivable Sub Pub Unit where
-  read s = do
+  readMany s = do
     xs <- read' s
     case Array.uncons xs of
       Just {head,tail} -> pure $ Just {aux: unit, msg: NonEmpty head tail}
       _ -> pure Nothing
 
 instance receivableSubXPub :: Receivable Sub XPub Unit where
-  read s = do
+  readMany s = do
     xs <- read' s
     case Array.uncons xs of
       Just {head,tail} -> pure $ Just {aux: unit, msg: NonEmpty head tail}
       _ -> pure Nothing
 
 instance receivableXSubPub :: Receivable XSub Pub Unit where
-  read s = do
+  readMany s = do
     xs <- read' s
     case Array.uncons xs of
       Just {head,tail} -> pure $ Just {aux: unit, msg: NonEmpty head tail}
       _ -> pure Nothing
 
 instance receivableReqRep :: Receivable Req Rep Unit where
-  read s = do
+  readMany s = do
     xs <- read' s
     case Array.uncons xs of
       Just {head,tail} -> pure $ Just {aux: unit, msg: NonEmpty head tail}
       _ -> pure Nothing
 
 instance receivableRepReq :: Receivable Rep Req Unit where
-  read s = do
+  readMany s = do
     xs <- read' s
     case Array.uncons xs of
       Just {head,tail} -> pure $ Just {aux: unit, msg: NonEmpty head tail}
       _ -> pure Nothing
 
 instance receivableReqRouter :: Receivable Req Router Unit where
-  read s = do
+  readMany s = do
     xs <- read' s
     case Array.uncons xs of
       Just {head,tail} -> pure $ Just {aux: unit, msg: NonEmpty head tail}
       _ -> pure Nothing
 
 instance receivableRouterReq :: Receivable Router Req ZMQIdent where
-  read s = do
+  readMany s = do
     xs <- read' s
     case Array.uncons xs of
       Just {head:addr,tail:t1} -> case Array.uncons t1 of
@@ -272,14 +272,14 @@ instance receivableRouterReq :: Receivable Router Req ZMQIdent where
       _ -> pure Nothing
 
 instance receivableRepDealer :: Receivable Rep Dealer Unit where
-  read s = do
+  readMany s = do
     xs <- read' s
     case Array.uncons xs of
       Just {head,tail} -> pure $ Just {aux: unit, msg: NonEmpty head tail}
       _ -> pure Nothing
 
 instance receivableDealerRep :: Receivable Dealer Rep Unit where
-  read s = do
+  readMany s = do
     xs <- read' s
     case Array.uncons xs of
       Just {head:_,tail:t1} -> case Array.uncons t1 of
@@ -288,7 +288,7 @@ instance receivableDealerRep :: Receivable Dealer Rep Unit where
       _ -> pure Nothing
 
 instance receivableDealerRouter :: Receivable Dealer Router Unit where
-  read s = do
+  readMany s = do
     xs <- read' s
     case Array.uncons xs of
       Just {head:_,tail:t1} -> case Array.uncons t1 of
@@ -297,7 +297,7 @@ instance receivableDealerRouter :: Receivable Dealer Router Unit where
       _ -> pure Nothing
 
 instance receivableRouterDealer :: Receivable Router Dealer ZMQIdent where
-  read s = do
+  readMany s = do
     xs <- read' s
     case Array.uncons xs of
       Just {head:addr,tail:t1} -> case Array.uncons t1 of
