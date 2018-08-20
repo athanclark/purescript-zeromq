@@ -26,10 +26,16 @@ import Data.Array as Array
 import Data.Time.Duration (Milliseconds)
 import Data.Generic (class Generic)
 import Data.Foreign (Foreign)
-import Node.Buffer (Buffer, fromArray)
+import Data.Argonaut
+  (class EncodeJson, encodeJson, class DecodeJson, decodeJson, jsonParser)
+import Node.Buffer (BUFFER, Buffer, fromArray)
+import Node.Buffer (fromString, toString) as Buffer
+import Node.Encoding (Encoding (UTF8)) as Buffer
 import Control.Monad.Aff (Aff, makeAff, nonCanceler)
 import Control.Monad.Eff (Eff, kind Effect)
-import Control.Monad.Eff.Uncurried (EffFn1, EffFn2, EffFn3, runEffFn2, mkEffFn1, runEffFn1, runEffFn3)
+import Control.Monad.Eff.Class (liftEff)
+import Control.Monad.Eff.Uncurried
+  (EffFn1, EffFn2, EffFn3, runEffFn2, mkEffFn1, runEffFn1, runEffFn3)
 import Control.Monad.Eff.Unsafe (unsafeCoerceEff)
 import Control.Monad.Eff.Exception (Error)
 
@@ -136,6 +142,17 @@ class Sendable from to aux | from to -> aux where
            -> NonEmpty Array Buffer
            -> Eff (zeromq :: ZEROMQ | eff) Unit
 
+sendJson :: forall from to aux a eff loc
+          . Sendable from to aux
+         => EncodeJson a
+         => aux
+         -> Socket from to loc
+         -> a
+         -> Eff (buffer :: BUFFER, zeromq :: ZEROMQ | eff) Unit
+sendJson a s x = do
+  buf <- Buffer.fromString (show $ encodeJson x) Buffer.UTF8
+  sendMany a s (NonEmpty buf [])
+
 instance sendablePubSub :: Sendable Pub Sub Unit where
   sendMany _ s xs = sendMany' s xs
 
@@ -183,6 +200,22 @@ class Receivable from to aux | from to -> aux where
         . Socket from to loc
        -> Aff (zeromq :: ZEROMQ | eff)
           (Maybe { aux :: aux, msg :: NonEmpty Array Buffer })
+
+readJson :: forall from to aux eff loc a
+          . Receivable from to aux
+         => DecodeJson a
+         => Socket from to loc
+         -> Aff (buffer :: BUFFER, zeromq :: ZEROMQ | eff)
+            (Maybe { aux :: aux, msg :: a })
+readJson s = do
+  mX <- read s
+  case mX of
+    Nothing -> pure Nothing
+    Just {aux,msg: NonEmpty msg _} -> do
+      str <- liftEff (Buffer.toString Buffer.UTF8 msg)
+      case decodeJson =<< jsonParser str of
+        Left _ -> pure Nothing
+        Right x -> pure (Just {aux,msg:x})
 
 instance receivableSubPub :: Receivable Sub Pub Unit where
   read s = do
