@@ -13,7 +13,7 @@ module ZeroMQ
   , acceptE, acceptErrorE, closeE, closeErrorE, disconnectE
   , Flag, sendMore, dontWait, close
   , class Sendable, sendMany, sendJson
-  , class Receivable, readMany, readJson, addReceiveListener, removeAllReceiveListeners
+  , class Receivable, readMany, readJson, readJson', addReceiveListener, removeAllReceiveListeners
   , proxy, kind Location, Bound, Connected
   ) where
 
@@ -208,14 +208,28 @@ readJson :: forall from to aux eff loc a
          -> Aff (buffer :: BUFFER, zeromq :: ZEROMQ | eff)
             (Maybe { aux :: aux, msg :: a })
 readJson s = do
+  mX <- readJson' s
+  case mX of
+    Nothing -> pure Nothing
+    Just eX -> case eX of
+      Left _ -> pure Nothing
+      Right x -> pure (Just x)
+
+readJson' :: forall from to aux eff loc a
+           . Receivable from to aux
+          => DecodeJson a
+          => Socket from to loc
+          -> Aff (buffer :: BUFFER, zeromq :: ZEROMQ | eff)
+             (Maybe (Either String { aux :: aux, msg :: a }))
+readJson' s = do
   mX <- readMany s
   case mX of
     Nothing -> pure Nothing
     Just {aux,msg: NonEmpty msg _} -> do
       str <- liftEff (Buffer.toString Buffer.UTF8 msg)
       case decodeJson =<< jsonParser str of
-        Left _ -> pure Nothing
-        Right x -> pure (Just {aux,msg:x})
+        Left e -> pure $ Just $ Left e
+        Right x -> pure $ Just $ Right {aux,msg:x}
 
 instance receivableSubPub :: Receivable Sub Pub Unit where
   readMany s = do
