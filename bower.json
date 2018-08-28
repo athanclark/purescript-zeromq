@@ -15,7 +15,7 @@
     "purescript-nullable": "^3.0.0",
     "purescript-foreign": "^4.0.1",
     "purescript-argonaut": "^3.0.0",
-    "purescript-node-buffer": "^3.0.1"
+    "purescript-node-buffer": "git@git.localcooking.com:private-tooling/purescript-node-buffer.git#7a0cb8f36273e581a0220383dd39fd619c6c57bc"
   },
   "repository": {
     "type": "git",
