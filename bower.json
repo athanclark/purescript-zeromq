@@ -9,21 +9,22 @@
   ],
   "license": "BSD-3-Clause",
   "dependencies": {
-    "purescript-prelude": "^3.1.0",
-    "purescript-console": "^3.0.0",
-    "purescript-aff": "^4.1.1",
-    "purescript-nullable": "^3.0.0",
-    "purescript-foreign": "^4.0.1",
-    "purescript-argonaut": "^3.0.0",
-    "purescript-node-buffer": "git@git.localcooking.com:private-tooling/purescript-node-buffer.git#7a0cb8f36273e581a0220383dd39fd619c6c57bc"
+    "purescript-prelude": "^4.1.0",
+    "purescript-console": "^4.1.0",
+    "purescript-aff": "^5.0.2",
+    "purescript-nullable": "^4.1.0",
+    "purescript-generics-rep": "^6.1.0",
+    "purescript-foreign": "^5.0.0",
+    "purescript-argonaut": "^4.0.1",
+    "purescript-node-buffer": "5.0.0"
   },
   "repository": {
     "type": "git",
     "url": "git://github.com/athanclark/purescript-zeromq.git"
   },
   "devDependencies": {
-    "purescript-encoding": "^0.0.4",
-    "purescript-uuid": "^4.0.0",
-    "purescript-psci-support": "^3.0.0"
+    "purescript-encoding": "^0.0.5",
+    "purescript-uuid": "^5.0.0",
+    "purescript-psci-support": "^4.0.0"
   }
 }

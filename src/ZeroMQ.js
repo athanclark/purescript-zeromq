@@ -78,9 +78,9 @@ exports.sendMore = zmq.ZMQ_SNDMORE;
 exports.dontWait = zmq.ZMQ_DONTWAIT;
 
 
-exports.sendImpl = function sendImpl (socket,flags,msg) {
-  socket.send(msg,flags);
-};
+// exports.sendImpl = function sendImpl (socket,flags,msg) {
+//   socket.send(msg,flags);
+// };
 
 
 exports.sendManyImpl = function sendManyImpl (socket,msgs) {
@@ -88,9 +88,9 @@ exports.sendManyImpl = function sendManyImpl (socket,msgs) {
 };
 
 
-exports.readImpl = function readImpl (socket) {
-  return socket.read();
-};
+// exports.readImpl = function readImpl (socket) {
+//   return socket.read();
+// };
 
 
 exports.monitorImpl = function monitorImpl (socket,interval,events) {
