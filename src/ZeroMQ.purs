@@ -1,3 +1,6 @@
+-- | This module tries to be analogous to the [zermq4-simple](https://hackage.haskell.org/package/zeromq4-simple)
+-- | Haskell library.
+
 module ZeroMQ
   ( Pair, pair, Pub, pub, Sub, sub, XPub, xpub, XSub, xsub, Pull, pull
   , Push, push, Req, req, Rep, rep, Router, router, Dealer, dealer
