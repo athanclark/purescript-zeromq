@@ -3,7 +3,6 @@ module Test.Main where
 import Prelude
 import Data.Maybe (Maybe (..))
 import Data.Either (Either (..))
-import Data.Array as Array
 import Data.NonEmpty (NonEmpty (..))
 import Data.Traversable (traverse)
 import Data.UUID (genUUID)
@@ -12,29 +11,30 @@ import Node.Buffer (fromString, toString, fromArray)
 import Node.Encoding (Encoding (UTF8))
 import Data.Foldable (for_)
 import Data.Enum (enumFromTo)
-import Control.Monad.Rec.Class (forever)
-import Control.Monad.Aff (runAff_, delay)
-import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Console (CONSOLE, log)
-import Control.Monad.Eff.Exception (throwException)
-import Unsafe.Coerce (unsafeCoerce)
+import Effect (Effect)
+import Effect.Aff (runAff_, delay)
+import Effect.Class (liftEffect)
+import Effect.Console (log)
+import Effect.Exception (throwException)
 
 import ZeroMQ
-  ( ZEROMQ, router, dealer, socket, bindSync, connect, setOption, zmqIdentity
-  , read, sendMany)
+  ( router, dealer, socket, bindSync, close, connect, disconnect, setOption, zmqIdentity
+  , readMany, sendMany)
 
 
 
-main :: Eff _ Unit
+main :: Effect Unit
 main = do
-  runClient
-  -- log "You should add some tests."
+  runClient -- Server
 
 
+runServer :: Effect Unit
 runServer = do
+  log "Running as Server"
+
   server <- socket dealer router
-  bindSync server "tcp://*:5561"
+  let addr = "tcp://*:5561"
+  bindSync server addr
   clientId <- (\x -> fromArray [0,0,0,0]) =<< genUUID
   setOption server zmqIdentity clientId
 
@@ -42,31 +42,35 @@ runServer = do
 
   let resolve eX = case eX of
         Left e -> throwException e
-        Right _ -> pure unit
+        Right _ -> close server -- unbindSync server addr
   runAff_ resolve $ for_ (enumFromTo 1 10 :: Array Int) \i -> do
-    liftEff $ sendMany unit server $ NonEmpty hello []
-    xs <- read server
+    liftEffect $ sendMany unit server $ NonEmpty hello []
+    xs <- readMany server
     case xs of
-      Nothing -> liftEff $ log "no content?"
+      Nothing -> liftEffect $ log "no content?"
       Just {msg} -> do
-        xs' <- liftEff $ traverse (toString UTF8) msg
-        liftEff $ log $ show xs'
+        xs' <- liftEffect $ traverse (toString UTF8) msg
+        liftEffect $ log $ show xs'
         delay $ Milliseconds $ 1000.0
 
 
+runClient :: Effect Unit
 runClient = do
+  log "Running as Client"
+
   client <- socket router dealer
-  connect client "tcp://localhost:5561"
+  let addr = "tcp://localhost:5561"
+  connect client addr
 
   let resolve eX = case eX of
         Left e -> throwException e
-        Right _ -> pure unit
-  runAff_ resolve $ forever do
-    xs <- read client
-    liftEff $ case xs of
+        Right _ -> disconnect client addr
+  runAff_ resolve $ for_ (enumFromTo 1 10 :: Array Int) \_ -> do
+    xs <- readMany client
+    liftEffect $ case xs of
       Nothing -> log "no content?"
-      Just {aux:addr,msg:NonEmpty y ys} -> do
+      Just {aux:addr',msg:NonEmpty y ys} -> do
         xs' <- traverse (toString UTF8) ([y] <> ys)
         log $ show xs'
         q <- fromString "?" UTF8
-        sendMany addr client $ NonEmpty y $ ys <> [q]
+        sendMany addr' client $ NonEmpty y $ ys <> [q]
