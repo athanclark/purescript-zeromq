@@ -157,6 +157,9 @@ sendJson a s x = do
       buf <- Buffer.fromString jsonString Buffer.UTF8
       sendMany a s (NonEmpty buf [])
 
+instance sendablePairPair :: Sendable Pair Pair Unit where
+  sendMany _ s xs = sendMany' s xs
+
 instance sendablePubSub :: Sendable Pub Sub Unit where
   sendMany _ s xs = sendMany' s xs
 
@@ -231,6 +234,13 @@ readJson' s = do
       case decodeJson =<< jsonParser str of
         Left e -> pure $ Just $ Left e
         Right x -> pure $ Just $ Right {aux,msg:x}
+
+instance receivablePairPair :: Receivable Pair Pair Unit where
+  readMany s = do
+    xs <- read' s
+    case Array.uncons xs of
+      Just {head,tail} -> pure $ Just {aux: unit, msg: NonEmpty head tail}
+      _ -> pure Nothing
 
 instance receivableSubPub :: Receivable Sub Pub Unit where
   readMany s = do
