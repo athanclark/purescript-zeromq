@@ -1,0 +1,20 @@
+{
+  "name": "purescript-zeromq",
+  "set": "psc-0.13.6-20200404",
+  "source": "https://github.com/purescript/package-sets.git",
+  "depends": [
+    "preludei",
+    "aff",
+    "argonaut",
+    "console",
+    "effect",
+    "encoding",
+    "foreign",
+    "generics-rep",
+    "node-buffer",
+    "nullable",
+    "prelude",
+    "psci-support",
+    "uuid"
+  ]
+}
