@@ -3,6 +3,7 @@ node_js:
 language: node_js
 install:
   - npm install -g purescript pulp bower spago psc-package purp-bin-simple
+  - npm install
   - bower install
   - spago -x test.dhall install
   - psc-package install
